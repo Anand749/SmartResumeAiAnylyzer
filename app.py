@@ -76,7 +76,7 @@ class ResumeApp:
             "🏠 HOME": self.render_home,
             "🔍 RESUME ANALYZER": self.render_analyzer,
             "📝 RESUME BUILDER": self.render_builder,
-            "🎤 MOCK INTERVIEW": self.render_mock_interview 
+            "🎤 MOCK INTERVIEW":"https://mock-interview-system-fronend.vercel.app/"
         }
         
         self.analyzer = ResumeAnalyzer()
@@ -533,16 +533,6 @@ class ResumeApp:
         unsafe_allow_html=True
     )
 
-    # JavaScript for automatic redirection
-    components.html(
-        """
-        <script>
-        window.setTimeout(function() {
-            window.open('https://mock-interview-system-fronend.vercel.app/', '_blank');
-        }, 3000);
-        </script>
-        """
-    )
 
 
     def render_builder(self):

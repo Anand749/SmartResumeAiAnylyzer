@@ -76,7 +76,7 @@ class ResumeApp:
             "🏠 HOME": self.render_home,
             "🔍 RESUME ANALYZER": self.render_analyzer,
             "📝 RESUME BUILDER": self.render_builder,
-            "🎤 MOCK INTERVIEW":"https://mock-interview-system-fronend.vercel.app/"
+            "🎤 MOCK INTERVIEW": "https://mock-interview-system-fronend.vercel.app/"
         }
         
         self.analyzer = ResumeAnalyzer()
@@ -1222,56 +1222,47 @@ class ResumeApp:
         """, unsafe_allow_html=True)
     
     
-    def render_mock_interview(self):
-        """Render the mock interview redirect page"""
-        st.markdown("""
-        <div style='text-align: center; padding: 2rem;'>
-            <h2>Redirecting to Mock Interview System...</h2>
-            <p>If you're not redirected automatically, <a href='https://mock-interview-system-fronend.vercel.app/' target='_blank'>click here</a>.</p>
-        </div>
-        """, unsafe_allow_html=True)
+   
 
     def main(self):
-            """Main application entry point"""
-            self.apply_global_styles()
+        """Main application entry point"""
+        self.apply_global_styles()
+        
+        with st.sidebar:
+            st.title("NextGen Job Prep")
+            st.markdown("---")
             
-            with st.sidebar:
-                st.title("NextGen Job Prep")
-                st.markdown("---")
-                
-                # Navigation buttons
-                for page_name, (page_key, page_content) in self.pages.items():
-                    if st.button(page_name, use_container_width=True):
-                        if isinstance(page_content, str):  # It's a URL
-                            # Open URL in new tab
-                            components.html(
-                                f"""
-                                <script>
-                                window.open('{page_content}', '_blank');
-                                </script>
-                                """
-                            )
-                            # Set session state to show the redirect message
-                            st.session_state.page = page_key
-                        else:  # It's a function
-                            st.session_state.page = page_key
-                        st.rerun()
-            
-            # Render the appropriate page
-            current_page = st.session_state.get('page', 'home')
-            
-            if current_page == 'interview':
-                self.render_mock_interview()
+            # Navigation buttons
+            for page_name, page_content in self.pages.items():
+                if st.button(page_name, use_container_width=True):
+                    if isinstance(page_content, str):  # It's a URL
+                        # Open URL in new tab
+                        components.html(
+                            f"""
+                            <script>
+                            window.open('{page_content}', '_blank');
+                            </script>
+                            """
+                        )
+                        # Set session state to show the redirect message
+                        st.session_state.page = page_name
+                    else:  # It's a function
+                        st.session_state.page = page_name
+                    st.rerun()
+        
+        # Render the appropriate page
+        current_page = st.session_state.get('page', 'home')
+        
+        if current_page == "🎤 MOCK INTERVIEW":
+            self.render_mock_interview()
+        else:
+            # Find the correct page to render
+            page_content = self.pages.get(current_page)
+            if callable(page_content):
+                page_content()
             else:
-                # Find the correct page to render
-                for (page_name, (page_key, page_content)) in self.pages.items():
-                    if page_key == current_page and callable(page_content):
-                        page_content()
-                        break
-                else:
-                    # Default to home if page not found
-                    self.render_home()
-
+                # Default to home if page not found
+                self.render_home()
     
 if __name__ == "__main__":
     app = ResumeApp()

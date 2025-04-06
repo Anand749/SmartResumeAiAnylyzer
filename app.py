@@ -1201,42 +1201,77 @@ class ResumeApp:
                 cleaned_name = "🔍 RESUME ANALYZER".lower().replace(" ", "_").replace("🔍", "").strip()
                 st.session_state.page = cleaned_name
                 st.rerun()
+                
+
+    def render_mock_interview(self):
+        """Handle mock interview redirection"""
+        # Use JavaScript to open in new tab
+        components.html(
+            """
+            <script>
+            window.open('https://mock-interview-system-fronend.vercel.app/', '_blank');
+            </script>
+            """
+        )
+        # Show a message
+        st.markdown("""
+        <div style='text-align: center; padding: 2rem;'>
+            <h2>Redirecting to Mock Interview System...</h2>
+            <p>If you're not redirected automatically, <a href='https://mock-interview-system-fronend.vercel.app/' target='_blank'>click here</a>.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    
+    def render_mock_interview(self):
+        """Render the mock interview redirect page"""
+        st.markdown("""
+        <div style='text-align: center; padding: 2rem;'>
+            <h2>Redirecting to Mock Interview System...</h2>
+            <p>If you're not redirected automatically, <a href='https://mock-interview-system-fronend.vercel.app/' target='_blank'>click here</a>.</p>
+        </div>
+        """, unsafe_allow_html=True)
 
     def main(self):
-        """Main application entry point"""
-        self.apply_global_styles()
-        
-        # # Admin login/logout in sidebar
-        with st.sidebar:
-            st.title("NextGen Job Prep")
-            st.markdown("---")
+            """Main application entry point"""
+            self.apply_global_styles()
             
-        #     # Navigation buttons
-            for page_name in self.pages.keys():
-                if st.button(page_name, use_container_width=True):
-                    cleaned_name = page_name.lower().replace(" ", "_").replace("🏠", "").replace("🔍", "").replace("📝", "").replace("📊", "").replace("🎯", "").replace("💬", "").replace("ℹ️", "").strip()
-                    st.session_state.page = cleaned_name
-                    st.rerun()
-        
-        # Force home page on first load
-        if 'initial_load' not in st.session_state:
-            st.session_state.initial_load = True
-            st.session_state.page = 'home'
-            st.rerun()
-        
-        # Get current page and render it
-        current_page = st.session_state.get('page', 'home')
-        
-        # Create a mapping of cleaned page names to original names
-        page_mapping = {name.lower().replace(" ", "_").replace("🏠", "").replace("🔍", "").replace("📝", "").replace("📊", "").replace("🎯", "").replace("💬", "").replace("ℹ️", "").strip(): name 
-                       for name in self.pages.keys()}
-        
-        # Render the appropriate page
-        if current_page in page_mapping:
-            self.pages[page_mapping[current_page]]()
-        else:
-            # Default to home page if invalid page
-            self.render_home()
+            with st.sidebar:
+                st.title("NextGen Job Prep")
+                st.markdown("---")
+                
+                # Navigation buttons
+                for page_name, (page_key, page_content) in self.pages.items():
+                    if st.button(page_name, use_container_width=True):
+                        if isinstance(page_content, str):  # It's a URL
+                            # Open URL in new tab
+                            components.html(
+                                f"""
+                                <script>
+                                window.open('{page_content}', '_blank');
+                                </script>
+                                """
+                            )
+                            # Set session state to show the redirect message
+                            st.session_state.page = page_key
+                        else:  # It's a function
+                            st.session_state.page = page_key
+                        st.rerun()
+            
+            # Render the appropriate page
+            current_page = st.session_state.get('page', 'home')
+            
+            if current_page == 'interview':
+                self.render_mock_interview()
+            else:
+                # Find the correct page to render
+                for (page_name, (page_key, page_content)) in self.pages.items():
+                    if page_key == current_page and callable(page_content):
+                        page_content()
+                        break
+                else:
+                    # Default to home if page not found
+                    self.render_home()
+
     
 if __name__ == "__main__":
     app = ResumeApp()

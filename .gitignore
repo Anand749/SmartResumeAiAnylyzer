@@ -1,0 +1,32 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+
+# Virtual environment
+venv/
+.env
+
+# Streamlit specific
+.streamlit/
+
+# VS Code temp files
+.vscode/
+tempCodeRunnerFile.*
+
+# Databases and export files (optional: include if these are generated or large)
+*.db
+*.xlsx
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Logs and cache
+*.log
+*.cache
+
+# Ignore secrets (if any)
+.env.*

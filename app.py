@@ -2,7 +2,7 @@
 NextGen Job Prep
 """
 import streamlit as st
-
+import streamlit.components.v1 as components
 # Set page config at the very beginning
 st.set_page_config(
     page_title="NextGen Job Prep",
@@ -76,6 +76,7 @@ class ResumeApp:
             "🏠 HOME": self.render_home,
             "🔍 RESUME ANALYZER": self.render_analyzer,
             "📝 RESUME BUILDER": self.render_builder,
+            "🎤 MOCK INTERVIEW": self.render_mock_interview 
         }
         
         self.analyzer = ResumeAnalyzer()
@@ -505,6 +506,44 @@ class ResumeApp:
                 st.error(f"Error processing resume: {str(e)}")
                 return False
         return False
+    
+    def render_mock_interview(self):
+     """Render the mock interview redirection"""
+    st.markdown(
+        """
+        <div style='text-align: center; padding: 2rem;'>
+            <h2>Redirecting to Mock Interview System...</h2>
+            <p>If you're not redirected automatically, click the button below:</p>
+            <a href='https://mock-interview-system-fronend.vercel.app/' target='_blank'>
+                <button style='
+                    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+                    color: white;
+                    padding: 1rem 2rem;
+                    border-radius: 50px;
+                    border: none;
+                    font-weight: 500;
+                    cursor: pointer;
+                    margin-top: 1rem;
+                '>
+                    Go to Mock Interview System
+                </button>
+            </a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # JavaScript for automatic redirection
+    components.html(
+        """
+        <script>
+        window.setTimeout(function() {
+            window.open('https://mock-interview-system-fronend.vercel.app/', '_blank');
+        }, 3000);
+        </script>
+        """
+    )
+
 
     def render_builder(self):
         st.title("Resume Builder 📝")

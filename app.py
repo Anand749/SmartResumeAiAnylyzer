@@ -507,32 +507,7 @@ class ResumeApp:
                 return False
         return False
     
-    def render_mock_interview(self):
-     """Render the mock interview redirection"""
-    st.markdown(
-        """
-        <div style='text-align: center; padding: 2rem;'>
-            <h2>Redirecting to Mock Interview System...</h2>
-            <p>If you're not redirected automatically, click the button below:</p>
-            <a href='https://mock-interview-system-fronend.vercel.app/' target='_blank'>
-                <button style='
-                    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-                    color: white;
-                    padding: 1rem 2rem;
-                    border-radius: 50px;
-                    border: none;
-                    font-weight: 500;
-                    cursor: pointer;
-                    margin-top: 1rem;
-                '>
-                    Go to Mock Interview System
-                </button>
-            </a>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
+   
 
 
     def render_builder(self):

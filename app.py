@@ -1104,20 +1104,26 @@ class ResumeApp:
 
                 
                 # Course Recommendations
+  
                 st.markdown("""
                 <div class="feature-card">
                     <h2>📚 Recommended Courses</h2>
                 """, unsafe_allow_html=True)
-                
-                # Get courses based on role and category
+
+                  # Get courses based on role and category
                 courses = get_courses_for_role(selected_role)
                 if not courses:
                     category = get_category_for_role(selected_role)
                     courses = COURSES_BY_CATEGORY.get(category, {}).get(selected_role, [])
-                
+
+              # Shuffle courses to show them randomly
+                random.shuffle(courses)
+
                 # Display courses in a grid
                 cols = st.columns(2)
-                for i, course in enumerate(courses[:6]):  # Show top 6 courses
+                for i, course in enumerate(courses[:6]):  
+                    
+                    # Show top 6 random courses
                     with cols[i % 2]:
                         st.markdown(f"""
                         <div style='background-color: #1e1e1e; padding: 15px; border-radius: 10px; margin: 10px 0;'>
@@ -1125,39 +1131,39 @@ class ResumeApp:
                             <a href='{course[1]}' target='_blank'>View Course</a>
                         </div>
                         """, unsafe_allow_html=True)
-                
+
                 st.markdown("</div>", unsafe_allow_html=True)
-                
-                # Learning Resources
+
+               # Learning Resources
                 st.markdown("""
                 <div class="feature-card">
                     <h2>📺 Helpful Videos</h2>
                 """, unsafe_allow_html=True)
-                
+
                 tab1, tab2 = st.tabs(["Resume Tips", "Interview Tips"])
-                
+
                 with tab1:
-                    # Resume Videos
+                # Resume Videos
                     for category, videos in RESUME_VIDEOS.items():
                         st.subheader(category)
                         cols = st.columns(2)
                         for i, video in enumerate(videos):
                             with cols[i % 2]:
                                 st.video(video[1])
-                
+
                 with tab2:
-                    # Interview Videos
+              # Interview Videos
                     for category, videos in INTERVIEW_VIDEOS.items():
                         st.subheader(category)
                         cols = st.columns(2)
                         for i, video in enumerate(videos):
                             with cols[i % 2]:
                                 st.video(video[1])
-                
+
                 st.markdown("</div>", unsafe_allow_html=True)
-                
-        # Close the page container
-        st.markdown('</div>', unsafe_allow_html=True)
+
+                # Close the page container
+                st.markdown('</div>', unsafe_allow_html=True)
 
     def render_home(self):
         apply_modern_styles()

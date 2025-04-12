@@ -1,6 +1,7 @@
 """
 NextGen Job Prep
 """
+import random
 import streamlit as st
 import streamlit.components.v1 as components
 # Set page config at the very beginning
@@ -1164,6 +1165,8 @@ class ResumeApp:
 
                 # Close the page container
                 st.markdown('</div>', unsafe_allow_html=True)
+
+                
 
     def render_home(self):
         apply_modern_styles()

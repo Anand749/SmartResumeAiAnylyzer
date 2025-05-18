@@ -1,20 +1,14 @@
 """
 NextGen Job Prep
 """
-import random
 import streamlit as st
-import streamlit.components.v1 as components
-# Set page config at the very beginning
-st.set_page_config(
-    page_title="NextGen Job Prep",
-    page_icon="🚀",
-    layout="wide"
-)
-
+import re
 import json
 import pandas as pd
 import plotly.express as px
+# import streamlit.components.v1 as components
 import traceback
+import random
 from utils.resume_analyzer import ResumeAnalyzer
 from utils.resume_builder import ResumeBuilder
 from config.database import (
@@ -37,8 +31,8 @@ from ui_components import (
     render_suggestions_section
 )
 from datetime import datetime
-# from jobs.job_search import render_job_search
 from PIL import Image
+import webbrowser
 
 class ResumeApp:
     def __init__(self):
@@ -64,7 +58,10 @@ class ResumeApp:
                     'tools': []
                 }
             }
-        
+            
+        if 'validation_errors' not in st.session_state:
+            st.session_state.validation_errors = []
+
         # Initialize navigation state
         if 'page' not in st.session_state:
             st.session_state.page = 'home'
@@ -72,12 +69,12 @@ class ResumeApp:
         # Initialize admin state
         if 'is_admin' not in st.session_state:
             st.session_state.is_admin = False
-        
+            
         self.pages = {
             "🏠 HOME": self.render_home,
             "🔍 RESUME ANALYZER": self.render_analyzer,
             "📝 RESUME BUILDER": self.render_builder,
-            "🎤 MOCK INTERVIEW": "https://mock-interview-system-fronend.vercel.app/"
+             "🎤 MOCK INTERVIEW": self.render_mock_interview,
         }
         
         self.analyzer = ResumeAnalyzer()
@@ -436,20 +433,20 @@ class ResumeApp:
         """Export resume data to Excel"""
         conn = get_database_connection()
         
-        # Get resume data with analysis
-        query = """
-            SELECT 
-                rd.name, rd.email, rd.phone, rd.linkedin, rd.github, rd.portfolio,
-                rd.summary, rd.target_role, rd.target_category,
-                rd.education, rd.experience, rd.projects, rd.skills,
-                ra.ats_score, ra.keyword_match_score, ra.format_score, ra.section_score,
-                ra.missing_skills, ra.recommendations,
-                rd.created_at
-            FROM resume_data rd
-            LEFT JOIN resume_analysis ra ON rd.id = ra.resume_id
-        """
-        
         try:
+            # Get resume data with analysis
+            query = """
+                SELECT 
+                    rd.name, rd.email, rd.phone, rd.linkedin, rd.github, rd.portfolio,
+                    rd.summary, rd.target_role, rd.target_category,
+                    rd.education, rd.experience, rd.projects, rd.skills,
+                    ra.ats_score, ra.keyword_match_score, ra.format_score, ra.section_score,
+                    ra.missing_skills, ra.recommendations,
+                    rd.created_at
+                FROM resume_data rd
+                LEFT JOIN resume_analysis ra ON rd.id = ra.resume_id
+            """
+            
             # Read data into DataFrame
             df = pd.read_sql_query(query, conn)
             
@@ -460,7 +457,7 @@ class ResumeApp:
             
             return output.getvalue()
         except Exception as e:
-            print(f"Error exporting to Excel: {str(e)}")
+            st.error(f"Error exporting to Excel: {str(e)}")
             return None
         finally:
             conn.close()
@@ -474,11 +471,29 @@ class ResumeApp:
             </div>
         """
 
-    def analyze_resume(self, resume_text):
-        """Analyze resume and store results"""
-        analytics = self.analyzer.analyze_resume(resume_text)
-        st.session_state.analytics_data = analytics
-        return analytics
+    def validate_resume_structure(self, resume_data):
+        """Validate resume structure before analysis"""
+        errors = []
+        
+        # Check for required sections
+        if not resume_data.get('personal_info'):
+            errors.append("Missing personal information section")
+        
+        # Validate email if present
+        if resume_data.get('personal_info', {}).get('email'):
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', 
+                          resume_data['personal_info']['email']):
+                errors.append("Invalid email format in resume")
+        
+        return errors
+
+    def analyze_resume(self, resume_data, role_info=None):
+        """Enhanced with validation"""
+        validation_errors = self.validate_resume_structure(resume_data)
+        if validation_errors:
+            raise ValueError(f"Invalid resume structure: {'; '.join(validation_errors)}")
+        
+        return self.analyzer.analyze_resume(resume_data, role_info)
 
     def handle_resume_upload(self):
         """Handle resume upload and analysis"""
@@ -490,7 +505,7 @@ class ResumeApp:
                 if uploaded_file.type == "application/pdf":
                     resume_text = self.analyzer.extract_text_from_pdf(uploaded_file)
                 else:
-                    resume_text = self.analyzer.extract_text_from_pdf(uploaded_file)
+                    resume_text = self.analyzer.extract_text_from_docx(uploaded_file)
                 
                 # Store resume data
                 st.session_state.resume_data = {
@@ -500,18 +515,16 @@ class ResumeApp:
                 }
                 
                 # Analyze resume
-                analytics = self.analyze_resume(resume_text)
+                analytics = self.analyze_resume({'raw_text': resume_text})
                 
                 return True
             except Exception as e:
                 st.error(f"Error processing resume: {str(e)}")
                 return False
         return False
-    
-   
-
 
     def render_builder(self):
+        """Render the resume builder page"""
         st.title("Resume Builder 📝")
         st.write("Create your professional resume")
         
@@ -562,7 +575,9 @@ class ResumeApp:
 
         # Professional Summary
         st.subheader("Professional Summary")
-        summary = st.text_area("Professional Summary", value=st.session_state.form_data.get('summary', ''), height=150,
+        summary = st.text_area("Professional Summary", 
+                             value=st.session_state.form_data.get('summary', ''), 
+                             height=150,
                              help="Write a brief summary highlighting your key skills and experience")
         
         # Experience Section
@@ -754,31 +769,25 @@ class ResumeApp:
         
         # Generate Resume button
         if st.button("Generate Resume 📄", type="primary"):
-            print("Validating form data...")
-            print(f"Session state form data: {st.session_state.form_data}")
-            print(f"Email input value: {st.session_state.get('email_input', '')}")
-            
-            # Get the current values from form
-            current_name = st.session_state.form_data['personal_info']['full_name'].strip()
-            current_email = st.session_state.email_input if 'email_input' in st.session_state else ''
-            
-            print(f"Current name: {current_name}")
-            print(f"Current email: {current_email}")
+            st.session_state.validation_errors = []
             
             # Validate required fields
-            if not current_name:
+            if not st.session_state.form_data['personal_info']['full_name'].strip():
                 st.error("⚠️ Please enter your full name.")
-                return
-            
-            if not current_email:
-                st.error("⚠️ Please enter your email address.")
-                return
+                st.session_state.validation_errors.append("Full name is required")
                 
-            # Update email in form data one final time
-            st.session_state.form_data['personal_info']['email'] = current_email
+            if not st.session_state.form_data['personal_info']['email'].strip():
+                st.error("⚠️ Please enter your email address.")
+                st.session_state.validation_errors.append("Email is required")
+            elif not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', 
+                             st.session_state.form_data['personal_info']['email']):
+                st.error("⚠️ Please enter a valid email address.")
+                st.session_state.validation_errors.append("Invalid email format")
+            
+            if st.session_state.validation_errors:
+                return
             
             try:
-                print("Preparing resume data...")
                 # Prepare resume data with current form values
                 resume_data = {
                     "personal_info": st.session_state.form_data['personal_info'],
@@ -795,48 +804,22 @@ class ResumeApp:
                     "template": selected_template
                 }
                 
-                print(f"Resume data prepared: {resume_data}")
+                # Generate the resume
+                resume_file = self.builder.generate_resume(resume_data)
                 
-                try:
-                    # Generate resume
-                    resume_buffer = self.builder.generate_resume(resume_data)
-                    if resume_buffer:
-                        try:
-                            # Save resume data to database
-                            save_resume_data(resume_data)
-                            
-                            # Offer the resume for download
-                            st.success("✅ Resume generated successfully!")
-                            st.download_button(
-                                label="Download Resume 📥",
-                                data=resume_buffer,
-                                file_name=f"{current_name.replace(' ', '_')}_resume.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                            )
-                        except Exception as db_error:
-                            print(f"Warning: Failed to save to database: {str(db_error)}")
-                            # Still allow download even if database save fails
-                            st.warning("⚠️ Resume generated but couldn't be saved to database")
-                            st.download_button(
-                                label="Download Resume 📥",
-                                data=resume_buffer,
-                                file_name=f"{current_name.replace(' ', '_')}_resume.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                            )
-                    else:
-                        st.error("❌ Failed to generate resume. Please try again.")
-                        print("Resume buffer was None")
-                except Exception as gen_error:
-                    print(f"Error during resume generation: {str(gen_error)}")
-                    print(f"Full traceback: {traceback.format_exc()}")
-                    st.error(f"❌ Error generating resume: {str(gen_error)}")
-                        
+                # Display download button
+                st.success("Resume generated successfully!")
+                st.download_button(
+                    label="Download Resume",
+                    data=resume_file,
+                    file_name=f"{resume_data['personal_info']['full_name']}_Resume.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+                
             except Exception as e:
-                print(f"Error preparing resume data: {str(e)}")
-                print(f"Full traceback: {traceback.format_exc()}")
-                st.error(f"❌ Error preparing resume data: {str(e)}")
-    
-         
+                st.error(f"Error generating resume: {str(e)}")
+                st.error("Please check your input and try again")
+
     def render_analyzer(self):
         """Render the resume analyzer page"""
         apply_modern_styles()
@@ -869,14 +852,15 @@ class ResumeApp:
         # File Upload
         uploaded_file = st.file_uploader("Upload your resume", type=['pdf', 'docx'])
         
-        st.markdown(
-            self.render_empty_state(
-            "fas fa-cloud-upload-alt",
-            "Upload your resume to get started with AI-powered analysis"
-            ),
-            unsafe_allow_html=True
-        )
-        if uploaded_file:
+        if not uploaded_file:
+            st.markdown(
+                self.render_empty_state(
+                    "fas fa-cloud-upload-alt",
+                    "Upload your resume to get started with AI-powered analysis"
+                ),
+                unsafe_allow_html=True
+            )
+        else:
             with st.spinner("Analyzing your document..."):
                 # Get file content
                 text = ""
@@ -890,7 +874,6 @@ class ResumeApp:
                 except Exception as e:
                     st.error(f"Error reading file: {str(e)}")
                     return
-
                 
                 # Analyze the document
                 analysis = self.analyzer.analyze_resume({'raw_text': text}, role_info)
@@ -940,6 +923,7 @@ class ResumeApp:
                     st.error(f"⚠️ This appears to be a {analysis['document_type']} document, not a resume!")
                     st.warning("Please upload a proper resume for ATS analysis.")
                     return                
+                
                 # Display results in a modern card layout
                 col1, col2 = st.columns(2)
                 
@@ -995,8 +979,6 @@ class ResumeApp:
                     
                     st.markdown("</div>", unsafe_allow_html=True)
                                         
-                    # self.display_analysis_results(analysis_results)
-
                     # Skills Match Card
                     st.markdown("""
                     <div class="feature-card">
@@ -1102,29 +1084,24 @@ class ResumeApp:
                     
                     st.markdown("</div>", unsafe_allow_html=True)
                 
-
-                
                 # Course Recommendations
-  
                 st.markdown("""
                 <div class="feature-card">
                     <h2>📚 Recommended Courses</h2>
                 """, unsafe_allow_html=True)
 
-                  # Get courses based on role and category
+                # Get courses based on role and category
                 courses = get_courses_for_role(selected_role)
                 if not courses:
                     category = get_category_for_role(selected_role)
                     courses = COURSES_BY_CATEGORY.get(category, {}).get(selected_role, [])
 
-              # Shuffle courses to show them randomly
+                # Shuffle courses to show them randomly
                 random.shuffle(courses)
 
                 # Display courses in a grid
                 cols = st.columns(2)
-                for i, course in enumerate(courses[:6]):  
-                    
-                    # Show top 6 random courses
+                for i, course in enumerate(courses[:6]):  # Show top 6 random courses
                     with cols[i % 2]:
                         st.markdown(f"""
                         <div style='background-color: #1e1e1e; padding: 15px; border-radius: 10px; margin: 10px 0;'>
@@ -1135,7 +1112,7 @@ class ResumeApp:
 
                 st.markdown("</div>", unsafe_allow_html=True)
 
-               # Learning Resources
+                # Learning Resources
                 st.markdown("""
                 <div class="feature-card">
                     <h2>📺 Helpful Videos</h2>
@@ -1144,7 +1121,7 @@ class ResumeApp:
                 tab1, tab2 = st.tabs(["Resume Tips", "Interview Tips"])
 
                 with tab1:
-                # Resume Videos
+                    # Resume Videos
                     for category, videos in RESUME_VIDEOS.items():
                         st.subheader(category)
                         cols = st.columns(2)
@@ -1153,7 +1130,7 @@ class ResumeApp:
                                 st.video(video[1])
 
                 with tab2:
-              # Interview Videos
+                    # Interview Videos
                     for category, videos in INTERVIEW_VIDEOS.items():
                         st.subheader(category)
                         cols = st.columns(2)
@@ -1163,12 +1140,8 @@ class ResumeApp:
 
                 st.markdown("</div>", unsafe_allow_html=True)
 
-                # Close the page container
-                st.markdown('</div>', unsafe_allow_html=True)
-
-                
-
     def render_home(self):
+        """Render the home page"""
         apply_modern_styles()
         
         # Hero Section
@@ -1207,71 +1180,59 @@ class ResumeApp:
                         help="Click to start analyzing your resume",
                         type="primary",
                         use_container_width=True):
-                cleaned_name = "🔍 RESUME ANALYZER".lower().replace(" ", "_").replace("🔍", "").strip()
-                st.session_state.page = cleaned_name
+                st.session_state.page = 'resume_analyzer'
                 st.rerun()
-                
-
+    
     def render_mock_interview(self):
-        """Handle mock interview redirection"""
-        # Use JavaScript to open in new tab
-        components.html(
-            """
-            <script>
-            window.open('https://mock-interview-system-fronend.vercel.app/', '_blank');
-            </script>
-            """
-        )
-        # Show a message
+        """Render the mock interview redirection page"""
+        st.title("Mock Interview Preparation")
         st.markdown("""
         <div style='text-align: center; padding: 2rem;'>
             <h2>Redirecting to Mock Interview System...</h2>
-            <p>If you're not redirected automatically, <a href='https://mock-interview-system-fronend.vercel.app/' target='_blank'>click here</a>.</p>
+            <p>Click the button below to open the mock interview system in a new tab.</p>
         </div>
         """, unsafe_allow_html=True)
-    
-    
-   
+        
+        if st.button("Go to Mock Interview System"):
+            webbrowser.open_new_tab("https://mock-interview-system-fronend.vercel.app/")
+
 
     def main(self):
         """Main application entry point"""
         self.apply_global_styles()
         
+        # Sidebar navigation
         with st.sidebar:
             st.title("NextGen Job Prep")
             st.markdown("---")
             
             # Navigation buttons
-            for page_name, page_content in self.pages.items():
+            for page_name in self.pages.keys():
                 if st.button(page_name, use_container_width=True):
-                    if isinstance(page_content, str):  # It's a URL
-                        # Open URL in new tab
-                        components.html(
-                            f"""
-                            <script>
-                            window.open('{page_content}', '_blank');
-                            </script>
-                            """
-                        )
-                        # Set session state to show the redirect message
-                        st.session_state.page = page_name
-                    else:  # It's a function
-                        st.session_state.page = page_name
+                    cleaned_name = page_name.lower().replace(" ", "_").replace("🏠", "").replace("🔍", "").replace("📝", "").replace("📊", "").replace("🎯", "").replace("💬", "").replace("ℹ️", "").strip()
+                    st.session_state.page = cleaned_name
                     st.rerun()
         
-        # Render the appropriate page
+        # Force home page on first load
+        if 'initial_load' not in st.session_state:
+            st.session_state.initial_load = True
+            st.session_state.page = 'home'
+            st.rerun()
+        
+        # Get current page and render it
         current_page = st.session_state.get('page', 'home')
         
-        if current_page == "🎤 MOCK INTERVIEW":
-            self.render_mock_interview()
+        # Create a mapping of cleaned page names to original names
+        page_mapping = {name.lower().replace(" ", "_").replace("🏠", "").replace("🔍", "").replace("📝", "").replace("📊", "").replace("🎯", "").replace("💬", "").replace("ℹ️", "").strip(): name 
+                       for name in self.pages.keys()}
+        
+        # Render the appropriate page
+        if current_page in page_mapping:
+          
+             self.pages[page_mapping[current_page]]()
         else:
-            # Find the correct page to render
-            page_content = self.pages.get(current_page)
-            if callable(page_content):
-                page_content()
-            else:
-                # Default to home if page not found
-                self.render_home()
+            # Default to home page if invalid page
+            self.render_home()
     
 if __name__ == "__main__":
     app = ResumeApp()

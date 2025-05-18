@@ -17,6 +17,21 @@ class Resume(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
+
+def save_resume_data(resume_data):
+    """Save with pre-validation"""
+    required_fields = ['full_name', 'email', 'phone']
+    
+    # Validate before saving
+    if not all(field in resume_data.get('personal_info', {}) for field in required_fields):
+        raise ValueError(f"Missing required fields: {', '.join(required_fields)}")
+    
+    if not isinstance(resume_data.get('experience', []), list):
+        raise ValueError("Experience must be a list")
+    
+    # ... rest of your existing database code ...
+
+    
 # Define the Analysis model
 class Analysis(Base):
     __tablename__ = 'analyses'

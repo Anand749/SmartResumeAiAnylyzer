@@ -12,5 +12,7 @@ sqlalchemy
 openpyxl
 streamlit-lottie
 requests
+spacy
 PyPDF2
 python-dotenv
+regex==2023.10.3 
